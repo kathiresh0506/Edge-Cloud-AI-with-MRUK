@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Game Master — Tactical Radar</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────── */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    background: #0a0e17;
+    color: #c8d6e5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* ── Header ───────────────────────────────────────────── */
+  .header {
+    width: 100%;
+    padding: 12px 16px 8px;
+    text-align: center;
+    background: linear-gradient(180deg, #0f1524, #0a0e17);
+    border-bottom: 1px solid #1a2740;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #00d2ff, #7a5cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .connection-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #576574;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ee5a24;
+    transition: background 0.3s;
+  }
+
+  .status-dot.online { background: #00d2ff; box-shadow: 0 0 8px #00d2ff80; }
+
+  /* ── Enemy Type Selector ──────────────────────────────── */
+  .type-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    width: 100%;
+    overflow-x: auto;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .type-btn {
+    padding: 8px 16px;
+    border: 1px solid #1e3050;
+    border-radius: 8px;
+    background: #111b2e;
+    color: #8395a7;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .type-btn:active { transform: scale(0.95); }
+
+  .type-btn.active {
+    border-color: #00d2ff;
+    color: #00d2ff;
+    background: #0d1f35;
+    box-shadow: 0 0 12px #00d2ff30;
+  }
+
+  .type-btn.boss-btn.active {
+    border-color: #ff4757;
+    color: #ff4757;
+    background: #1f0d15;
+    box-shadow: 0 0 12px #ff475730;
+  }
+
+  /* ── Radar Container ──────────────────────────────────── */
+  .radar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    width: 100%;
+  }
+
+  .radar-container {
+    position: relative;
+    width: min(80vw, 360px);
+    height: min(80vw, 360px);
+    margin: 0 auto;
+  }
+
+  .radar-canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* ── Zoom Controls ────────────────────────────────────── */
+  .zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .zoom-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 1px solid #1e3050;
+    background: #111b2e;
+    color: #00d2ff;
+    font-size: 20px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .zoom-btn:active { transform: scale(0.9); background: #0d1f35; }
+
+  .zoom-slider-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .zoom-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #576574;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .zoom-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #00d2ff;
+  }
+
+  .zoom-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #1e3050;
+    outline: none;
+  }
+
+  .zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #00d2ff;
+    border: 2px solid #0a0e17;
+    cursor: pointer;
+    box-shadow: 0 0 8px #00d2ff60;
+  }
+
+  .zoom-slider::-moz-range-thumb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #00d2ff;
+    border: 2px solid #0a0e17;
+    cursor: pointer;
+  }
+
+  /* ── Spawn Log ────────────────────────────────────────── */
+  .log-section {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 16px 20px;
+  }
+
+  .log-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #576574;
+    margin-bottom: 6px;
+  }
+
+  .log-list {
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .log-entry {
+    font-size: 11px;
+    color: #576574;
+    font-family: 'Courier New', monospace;
+    padding: 2px 0;
+    border-bottom: 1px solid #111b2e;
+  }
+
+  .log-entry .coord { color: #00d2ff; }
+  .log-entry .type-tag { color: #7a5cff; }
+  .log-entry .boss-tag { color: #ff4757; }
+  .log-entry .time { color: #3d5170; }
+
+  /* ── Spawn Flash ──────────────────────────────────────── */
+  @keyframes spawnPulse {
+    0% { box-shadow: 0 0 0 0 #00d2ff60; }
+    70% { box-shadow: 0 0 0 30px #00d2ff00; }
+    100% { box-shadow: 0 0 0 0 #00d2ff00; }
+  }
+
+  .spawn-flash { animation: spawnPulse 0.6s ease-out; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>⚔ Game Master</h1>
+  <div class="connection-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Connecting...</span>
+  </div>
+</div>
+
+<!-- Enemy Type Selector -->
+<div class="type-bar" id="typeBar">
+  <button class="type-btn active" data-type="tiny_normal_tank">🛸 Normal</button>
+  <button class="type-btn boss-btn" data-type="boss">👾 Boss</button>
+</div>
+
+<!-- Radar -->
+<div class="radar-section">
+  <div class="radar-container" id="radarContainer">
+    <canvas class="radar-canvas" id="radarCanvas"></canvas>
+  </div>
+</div>
+
+<!-- Zoom Controls -->
+<div class="zoom-controls">
+  <button class="zoom-btn" id="zoomOut">−</button>
+  <div class="zoom-slider-wrap">
+    <span class="zoom-label">Radar Range</span>
+    <span class="zoom-value" id="zoomValueLabel">1.0× · 20m</span>
+    <input type="range" class="zoom-slider" id="zoomSlider"
+           min="1" max="4" step="0.1" value="1">
+  </div>
+  <button class="zoom-btn" id="zoomIn">+</button>
+</div>
+
+<!-- Spawn Log -->
+<div class="log-section">
+  <div class="log-title">Spawn History</div>
+  <div class="log-list" id="spawnLog"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// Configuration
+// ════════════════════════════════════════════════════════════
+const BASE_RADIUS_METERS = 20;   // At 1x zoom, edge = 20m
+const WS_PORT = 8765;
+
+// ════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════
+let ws = null;
+let selectedType = 'tiny_normal_tank';
+let zoomMultiplier = 1.0;
+let sweepAngle = 0;
+let spawnMarkers = [];       // {nx, ny, age, type}  normalised coords
+let reconnectDelay = 1000;
+const MAX_LOG_ENTRIES = 30;
+
+// ════════════════════════════════════════════════════════════
+// DOM
+// ════════════════════════════════════════════════════════════
+const canvas       = document.getElementById('radarCanvas');
+const ctx          = canvas.getContext('2d');
+const container    = document.getElementById('radarContainer');
+const statusDot    = document.getElementById('statusDot');
+const statusText   = document.getElementById('statusText');
+const zoomSlider   = document.getElementById('zoomSlider');
+const zoomLabel    = document.getElementById('zoomValueLabel');
+const spawnLog     = document.getElementById('spawnLog');
+
+// ════════════════════════════════════════════════════════════
+// Resize canvas to match container (retina-safe)
+// ════════════════════════════════════════════════════════════
+function resizeCanvas() {
+  const rect = container.getBoundingClientRect();
+  const size = Math.min(rect.width, rect.height);
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.width  = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width  = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ════════════════════════════════════════════════════════════
+// WebSocket
+// ════════════════════════════════════════════════════════════
+function connectWS() {
+  const host = window.location.hostname || 'localhost';
+  const url  = `ws://${host}:${WS_PORT}`;
+
+  statusText.textContent = `Connecting to ${host}...`;
+  statusDot.classList.remove('online');
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    statusDot.classList.add('online');
+    statusText.textContent = `Connected — ${host}:${WS_PORT}`;
+    reconnectDelay = 1000;
+    console.log('[GM] WebSocket connected:', url);
+  };
+
+  ws.onclose = () => {
+    statusDot.classList.remove('online');
+    statusText.textContent = `Disconnected — retry in ${(reconnectDelay/1000).toFixed(0)}s`;
+    console.log('[GM] WebSocket closed. Reconnecting...');
+    setTimeout(connectWS, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('[GM] WebSocket error:', err);
+    ws.close();
+  };
+
+  ws.onmessage = (evt) => {
+    console.log('[GM] Received:', evt.data);
+  };
+}
+connectWS();
+
+// ════════════════════════════════════════════════════════════
+// Enemy Type Buttons
+// ════════════════════════════════════════════════════════════
+document.querySelectorAll('.type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedType = btn.dataset.type;
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// Zoom Controls
+// ════════════════════════════════════════════════════════════
+function updateZoom(val) {
+  zoomMultiplier = Math.max(1, Math.min(4, parseFloat(val)));
+  zoomSlider.value = zoomMultiplier;
+  const range = (BASE_RADIUS_METERS * zoomMultiplier).toFixed(0);
+  zoomLabel.textContent = `${zoomMultiplier.toFixed(1)}× · ${range}m`;
+}
+
+zoomSlider.addEventListener('input', (e) => updateZoom(e.target.value));
+document.getElementById('zoomIn').addEventListener('click', () => updateZoom(zoomMultiplier + 0.5));
+document.getElementById('zoomOut').addEventListener('click', () => updateZoom(zoomMultiplier - 0.5));
+updateZoom(1);
+
+// ════════════════════════════════════════════════════════════
+// Radar Touch / Click → Spawn
+// ════════════════════════════════════════════════════════════
+function handleSpawn(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const size = rect.width;
+  const cx   = size / 2;
+  const cy   = size / 2;
+  const radius = size / 2;
+
+  // Pixel position relative to canvas center
+  const px = (clientX - rect.left) - cx;
+  const py = (clientY - rect.top)  - cy;
+
+  // Distance from center in pixels
+  const dist = Math.sqrt(px * px + py * py);
+  if (dist > radius) return;   // Outside circle — ignore
+
+  // Normalised position (-1 to 1)
+  const nx = px / radius;
+  const ny = py / radius;
+
+  // Scale to world metres:
+  //   At 1x → edge = 20m, so multiply normalised by (BASE * zoom)
+  const rangeMeters = BASE_RADIUS_METERS * zoomMultiplier;
+  const worldX = nx * rangeMeters;
+  const worldY = ny * rangeMeters;   // Phone Y → Unity Z (depth)
+
+  // Build JSON payload
+  const payload = {
+    device: "phone",
+    action: "spawn",
+    intent: "none",
+    type:   selectedType,
+    x:      parseFloat(worldX.toFixed(1)),
+    y:      parseFloat(worldY.toFixed(1)),
+    scale:  parseFloat(zoomMultiplier.toFixed(1))
+  };
+
+  // Send
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+    console.log('[GM] Sent:', payload);
+
+    // Visual feedback
+    canvas.classList.remove('spawn-flash');
+    void canvas.offsetWidth;            // reflow
+    canvas.classList.add('spawn-flash');
+
+    // Add marker
+    spawnMarkers.push({ nx, ny, age: 0, type: selectedType });
+    if (spawnMarkers.length > 20) spawnMarkers.shift();
+
+    // Log entry
+    addLogEntry(payload);
+  } else {
+    console.warn('[GM] WebSocket not connected!');
+    statusText.textContent = 'Not connected!';
+  }
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  handleSpawn(e.clientX, e.clientY);
+});
+
+// ════════════════════════════════════════════════════════════
+// Spawn Log
+// ════════════════════════════════════════════════════════════
+function addLogEntry(payload) {
+  const now = new Date().toLocaleTimeString();
+  const isBoss = payload.type === 'boss';
+  const typeClass = isBoss ? 'boss-tag' : 'type-tag';
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML =
+    `<span class="time">${now}</span> ` +
+    `<span class="${typeClass}">${payload.type}</span> → ` +
+    `<span class="coord">(${payload.x}, ${payload.y})</span> ` +
+    `@ ${payload.scale}×`;
+
+  spawnLog.prepend(entry);
+
+  while (spawnLog.children.length > MAX_LOG_ENTRIES) {
+    spawnLog.removeChild(spawnLog.lastChild);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Radar Rendering
+// ════════════════════════════════════════════════════════════
+function drawRadar() {
+  const w = canvas.width / (window.devicePixelRatio || 1);
+  const h = canvas.height / (window.devicePixelRatio || 1);
+  const cx = w / 2;
+  const cy = h / 2;
+  const R  = Math.min(cx, cy) - 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // ── Background ──
+  const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  bgGrad.addColorStop(0, '#0d1926');
+  bgGrad.addColorStop(1, '#060b14');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = bgGrad;
+  ctx.fill();
+
+  // ── Grid rings ──
+  const rings = 4;
+  const rangeMeters = BASE_RADIUS_METERS * zoomMultiplier;
+  ctx.strokeStyle = '#1a2a40';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= rings; i++) {
+    const r = (R / rings) * i;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Range label
+    const label = ((rangeMeters / rings) * i).toFixed(0) + 'm';
+    ctx.fillStyle = '#2a3d55';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy - r + 12);
+  }
+
+  // ── Crosshairs ──
+  ctx.strokeStyle = '#1a2a40';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+
+  // ── Compass labels ──
+  ctx.fillStyle = '#3d5170';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('N', cx, cy - R + 18);
+  ctx.fillText('S', cx, cy + R - 14);
+  ctx.fillText('W', cx - R + 16, cy);
+  ctx.fillText('E', cx + R - 16, cy);
+
+  // ── Sweep beam ──
+  sweepAngle += 0.015;
+  if (sweepAngle > Math.PI * 2) sweepAngle -= Math.PI * 2;
+
+  const sweepGrad = ctx.createConicalGradient
+    ? null  // Not widely supported
+    : null;
+
+  // Triangular sweep wedge
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(sweepAngle);
+  const sweepArc = 0.5;   // radians
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, R, -sweepArc/2, sweepArc/2);
+  ctx.closePath();
+  const swGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  swGrad.addColorStop(0, '#00d2ff15');
+  swGrad.addColorStop(0.7, '#00d2ff08');
+  swGrad.addColorStop(1, '#00d2ff00');
+  ctx.fillStyle = swGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // ── Sweep line ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(sweepAngle);
+  ctx.strokeStyle = '#00d2ff40';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(R, 0);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Player dot (center) ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00ff88';
+  ctx.fill();
+  ctx.strokeStyle = '#00ff8860';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Player label
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('YOU', cx, cy + 16);
+
+  // ── Spawn markers ──
+  for (let i = spawnMarkers.length - 1; i >= 0; i--) {
+    const m = spawnMarkers[i];
+    m.age += 0.016;   // ~60fps
+
+    if (m.age > 8) {
+      spawnMarkers.splice(i, 1);
+      continue;
+    }
+
+    const opacity = Math.max(0, 1 - m.age / 8);
+    const mx = cx + m.nx * R;
+    const my = cy + m.ny * R;
+    const isBoss = m.type === 'boss';
+    const color = isBoss ? '#ff4757' : '#7a5cff';
+
+    // Pulse ring
+    if (m.age < 1) {
+      const pulseR = 6 + m.age * 20;
+      ctx.beginPath();
+      ctx.arc(mx, my, pulseR, 0, Math.PI * 2);
+      ctx.strokeStyle = color + Math.floor((1 - m.age) * 99).toString(16).padStart(2, '0');
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Dot
+    ctx.beginPath();
+    ctx.arc(mx, my, isBoss ? 6 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+    ctx.fill();
+
+    // Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10 * opacity;
+    ctx.beginPath();
+    ctx.arc(mx, my, isBoss ? 6 : 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Outer ring ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#1e3050';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  requestAnimationFrame(drawRadar);
+}
+
+requestAnimationFrame(drawRadar);
+</script>
+</body>
+</html>

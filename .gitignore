@@ -1,0 +1,59 @@
+# ── Unity generated folders ──────────────────────────────
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# ── IDE / OS ─────────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.DS_Store
+Thumbs.db
+
+# ── Build artifacts ──────────────────────────────────────
+*.apk
+*.aab
+*.unitypackage
+*.app
+ExportedObj/
+crashlytics-build.properties
+
+# ── Asset meta of ignored files (Unity) ──────────────────
+/[Aa]ssets/AssetStoreTools*
+
+# ── Python server runtime junk ───────────────────────────
+__pycache__/
+*.pyc
+venv/
+.venv/
+generated_audio/
+
+# ── Files over GitHub's 100 MB limit (alternate-weapon
+#    texture caches — not used by the default pistol, and
+#    ~1.1 GB total which would exceed the free Git LFS quota)
+Assets/Resources/Models/ThompsonTextures/Metal_Albedo.asset
+Assets/Resources/Models/ThompsonTextures/Metal_Normal.asset
+Assets/Resources/Models/ThompsonTextures/Wood_Albedo.asset
+Assets/Resources/Models/ThompsonTextures/Wood_Metallic.asset
+Assets/Resources/Models/ThompsonTextures/Wood_Normal.asset
+Assets/Resources/Models/RemingtonTextures/remington_02_Metallic-remington_02_Roughness.asset
+Assets/Resources/Models/RemingtonTextures/remington_02_Normal.asset
